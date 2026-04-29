@@ -123,8 +123,8 @@ class SessionManager:
             chrome_options.add_experimental_option('prefs', prefs)
             
             # Criar driver com undetected-chromedriver (anti-detecção automática)
-            # Forçar version_main para corresponder ao Chrome instalado
-            driver = uc.Chrome(options=chrome_options, use_subprocess=True, version_main=147)
+            # Detecta versão do Chrome automaticamente
+            driver = uc.Chrome(options=chrome_options, use_subprocess=True)
             
             wait = WebDriverWait(driver, self.browser_timeout)
             
