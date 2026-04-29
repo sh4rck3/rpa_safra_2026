@@ -122,9 +122,30 @@ class SessionManager:
             }
             chrome_options.add_experimental_option('prefs', prefs)
             
+            # Detectar versão major do Chrome instalado
+            chrome_version = None
+            try:
+                import subprocess
+                # Windows: buscar versão no registro
+                result = subprocess.run(
+                    ['reg', 'query', r'HKEY_CURRENT_USER\Software\Google\Chrome\BLBeacon', '/v', 'version'],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    for line in result.stdout.strip().split('\n'):
+                        if 'version' in line.lower():
+                            ver = line.strip().split()[-1]
+                            chrome_version = int(ver.split('.')[0])
+                            print(f"   🔍 Chrome versão detectada: {ver} (major: {chrome_version})")
+                            break
+            except Exception as e:
+                print(f"   ⚠️ Não conseguiu detectar versão do Chrome: {e}")
+            
             # Criar driver com undetected-chromedriver (anti-detecção automática)
-            # Detecta versão do Chrome automaticamente
-            driver = uc.Chrome(options=chrome_options, use_subprocess=True)
+            if chrome_version:
+                driver = uc.Chrome(options=chrome_options, use_subprocess=True, version_main=chrome_version)
+            else:
+                driver = uc.Chrome(options=chrome_options, use_subprocess=True)
             
             wait = WebDriverWait(driver, self.browser_timeout)
             
