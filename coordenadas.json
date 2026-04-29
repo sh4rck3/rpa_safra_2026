@@ -1,0 +1,118 @@
+{
+  "campo_cpf": {
+    "x": 559,
+    "y": 281
+  },
+  "botao_pesquisar": {
+    "x": 284,
+    "y": 422
+  },
+  "botao_nova_proposta_pesquisa": {
+    "x": 1731,
+    "y": 558
+  },
+  "fechar_modal1": {
+    "x": 1172,
+    "y": 270
+  },
+  "dropdown_modal2": {
+    "x": 1128,
+    "y": 581
+  },
+  "opcao_dropdown": {
+    "x": 990,
+    "y": 126
+  },
+  "botao_incluir": {
+    "x": 1224,
+    "y": 720
+  },
+  "botao_voltar_pesquisa": {
+    "x": 69,
+    "y": 241
+  },
+  "fechar_modal_erro": {
+    "x": 1179,
+    "y": 266
+  },
+  "negado_click1": {
+    "x": 1805,
+    "y": 550
+  },
+  "negado_click2": {
+    "x": 1721,
+    "y": 654
+  },
+  "negado_click3": {
+    "x": 973,
+    "y": 234
+  },
+  "negado_click4": {
+    "x": 903,
+    "y": 258
+  },
+  "cancelado_click1": {
+    "x": 1805,
+    "y": 549
+  },
+  "cancelado_click2": {
+    "x": 1707,
+    "y": 558
+  },
+  "cancelado_click3": {
+    "x": 1790,
+    "y": 743
+  },
+  "cancelado_engrenagem": {
+    "x": 1803,
+    "y": 552
+  },
+  "cancelado_nova_proposta": {
+    "x": 1724,
+    "y": 661
+  },
+  "cancelado_tipo_proposta": {
+    "x": 974,
+    "y": 232
+  },
+  "cancelado_opcao_dropdown": {
+    "x": 917,
+    "y": 259
+  },
+  "cancelado_fechar_menu": {
+    "x": 1765,
+    "y": 681
+  },
+  "input_repasse_banco": {
+    "x": 1331,
+    "y": 830
+  },
+  "menu_pesquisa": {
+    "x": 917,
+    "y": 259
+  },
+  "click_apos_repasse": {
+    "x": 765,
+    "y": 781
+  },
+  "menu_pesquisa_pos_callback": {
+    "x": 79,
+    "y": 241
+  },
+  "input_cpf_pos_callback": {
+    "x": 557,
+    "y": 329
+  },
+  "login_campo_username": {
+    "x": 843,
+    "y": 495
+  },
+  "login_campo_password": {
+    "x": 856,
+    "y": 550
+  },
+  "login_botao_entrar": {
+    "x": 854,
+    "y": 639
+  }
+}

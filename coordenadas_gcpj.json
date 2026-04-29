@@ -1,0 +1,73 @@
+{
+    "extensao_chrome": {
+        "x": 2947,
+        "y": 984,
+        "descricao": "Posicione o mouse sobre o ÍCONE DA EXTENSÃO GCPJ no Chrome\n   (geralmente fica no canto superior direito, perto da barra de endereço)"
+    },
+    "input_busca": {
+        "x": 1772,
+        "y": 67,
+        "descricao": "Posicione o mouse sobre o CAMPO DE BUSCA/INPUT da extensão\n   (onde você digita 'GCPJ')"
+    },
+    "item_gcpj_menu": {
+        "x": 1686,
+        "y": 326,
+        "descricao": "Posicione o mouse sobre o ITEM 'GCPJ' no menu suspenso\n   (que apareceu após digitar 'GCPJ')"
+    },
+    "botao_acessar": {
+        "x": 1570,
+        "y": 352,
+        "descricao": "Posicione o mouse sobre o BOTÃO 'ACESSAR'\n   (que apareceu após selecionar GCPJ)"
+    },
+    "campo_pesquisa_gcpj": {
+        "x": 122,
+        "y": 235,
+        "descricao": "Posicione o mouse sobre o CAMPO DE PESQUISA/INPUT dentro do sistema GCPJ\n   (onde você vai digitar CPF/CNPJ para buscar)"
+    },
+    "link_consulta_processos": {
+        "x": 88,
+        "y": 237,
+        "descricao": "Posicione o mouse sobre o link/botão 'CONSULTA DE PROCESSOS'\n   (no menu ou página inicial do GCPJ)"
+    },
+    "campo_numero_processo": {
+        "x": 266,
+        "y": 248,
+        "descricao": "Posicione o mouse sobre o campo 'Nº DO PROCESSO BRADESCO' (GCPJ)\n   ⚠️  APENAS este campo! Não o 'Nome do Envolvido'!"
+    },
+    "botao_buscar": {
+        "x": 342,
+        "y": 424,
+        "descricao": "Posicione o mouse sobre o BOTÃO 'BUSCAR'\n   (para buscar o número do processo digitado)"
+    },
+    "primeiro_envolvido_link": {
+        "x": 59,
+        "y": 683,
+        "descricao": "Posicione o mouse sobre o PRIMEIRO NOME na tabela de Envolvidos\n   (Clique em: JI-PARANA-CENTRO)"
+    },
+    "dentro_modal_envolvido": {
+        "x": 794,
+        "y": 623,
+        "descricao": "Posicione o mouse em qualquer ÁREA DE TEXTO dentro do modal\n   (Pode ser no título 'Dados da Dependência' ou qualquer texto)"
+    },
+    "fechar_modal_envolvido": {
+        "x": 938,
+        "y": 265,
+        "descricao": "Posicione o mouse sobre o BOTÃO FECHAR do modal\n   (Geralmente um X no canto superior)"
+    },
+    "dentro_modal_contratos": {
+        "x": 852,
+        "y": 634,
+        "descricao": "Posicione o mouse DENTRO do modal de Contratos\n   (Em alguma área vazia ou na tabela de contratos)\n   Isso dará foco ao modal para copiar o conteúdo"
+    },
+    "voltar_clique_1": {
+        "x": 101,
+        "y": 140,
+        "descricao": "Posicione o mouse sobre o PRIMEIRO elemento para voltar\n   (Pode ser um botão Voltar, link, ou ícone de retorno)"
+    },
+    "voltar_clique_2": {
+        "x": 106,
+        "y": 238,
+        "descricao": "Posicione o mouse sobre o SEGUNDO elemento\n   (Link 'Consulta' ou menu para retornar à tela de consulta)"
+    },
+    "_extensao_configurada": true
+}

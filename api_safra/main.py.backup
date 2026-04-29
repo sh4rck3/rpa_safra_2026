@@ -1,0 +1,740 @@
+#!/usr/bin/env python3
+"""
+API FastAPI para receber requisições de processamento de CPF
+"""
+
+import os
+import time
+import uuid
+import requests
+from datetime import datetime
+from typing import Optional
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from pydantic import BaseModel, ValidationError
+from dotenv import load_dotenv
+
+try:
+    from api.session_manager import SessionManager
+    from api.processor import processar_cpf_completo
+except ImportError:
+    from session_manager import SessionManager
+    from processor import processar_cpf_completo
+
+# Carregar variáveis de ambiente
+load_dotenv()
+
+# Inicializar FastAPI
+app = FastAPI(
+    title="RPA Safra API",
+    description="API para processamento de CPF via automação web",
+    version="1.0.0"
+)
+
+# Machine ID único para identificar este servidor
+MACHINE_ID = os.getenv('MACHINE_ID', str(uuid.uuid4()))
+START_TIME = time.time()
+
+# Instâncias globais
+session_manager = SessionManager()
+
+# Variável para rastrear CPF sendo processado (para endpoint /status)
+current_job = None
+stats = {
+    "total_processados": 0,
+    "total_erros": 0
+}
+
+
+# Função para processar job em BACKGROUND
+def processar_job_direto(job: dict):
+    """
+    Processa um CPF em background (assíncrono)
+    Envia callback ao Laravel quando terminar
+    """
+    
+    global current_job, stats
+    
+    print(f"\n{'='*60}")
+    print(f"🔄 INICIANDO PROCESSAMENTO")
+    print(f"{'='*60}")
+    print(f"CPF ID: {job['cpf_id']}")
+    print(f"CPF: {job['cpf']}")
+    print(f"Nome: {job['nome']}")
+    print(f"Contrato: {job['contrato']}")
+    print(f"{'='*60}\n")
+    
+    start_time = time.time()
+    
+    try:
+        # Processar CPF (função síncrona - bloqueia até terminar)
+        resultado = processar_cpf_completo(session_manager, job['cpf'])
+        
+        processing_time = int(time.time() - start_time)
+        
+        # Preparar payload para callback
+        callback_payload = {
+            "cpf_id": job['cpf_id'],
+            "machine_id": MACHINE_ID,
+            "success": resultado.get("success", False),
+            "cpf": job['cpf'],
+            "processing_time": processing_time,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "data_processamento": datetime.now().strftime("%Y-%m-%d"),
+            "hora_processamento": datetime.now().strftime("%H:%M:%S"),
+            "error": resultado.get("error"),
+            "data": resultado.get("data", {})
+        }
+        
+        # Enviar callback para Laravel
+        print(f"\n📤 Enviando resultado para callback...")
+        enviar_callback(job['callback_url'], callback_payload)
+        
+        # ✅ IMPORTANTE: Voltar ao menu Pesquisa após enviar callback
+        print(f"\n↩️  Voltando ao menu Pesquisa...")
+        try:
+            # Importar funções necessárias
+            import sys
+            from pathlib import Path
+            sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+            from processar_lote import carregar_coordenadas, salvar_coordenadas
+            import pyautogui
+            import json
+            
+            # Carregar coordenadas
+            coordenadas = carregar_coordenadas()
+            
+            # 1. Verificar coordenada do menu Pesquisa
+            if 'menu_pesquisa_pos_callback' not in coordenadas:
+                print("\n" + "="*80)
+                print("📍 CAPTURA DE COORDENADA #1 - Menu Pesquisa (pós-callback)")
+                print("="*80)
+                print("⚠️  Coordenada 'menu_pesquisa_pos_callback' não encontrada!")
+                print("📋 Posicione o mouse sobre o menu 'Pesquisa' (menu lateral)")
+                print("⏱️  Captura em 5 segundos...")
+                print("="*80 + "\n")
+                
+                for i in range(5, 0, -1):
+                    print(f"   {i}...")
+                    time.sleep(1)
+                
+                pos = pyautogui.position()
+                print(f"\n✅ Coordenada capturada: X={pos[0]}, Y={pos[1]}")
+                
+                coordenadas['menu_pesquisa_pos_callback'] = {
+                    'x': pos[0],
+                    'y': pos[1]
+                }
+                
+                with open('coordenadas.json', 'w', encoding='utf-8') as f:
+                    json.dump(coordenadas, f, indent=4, ensure_ascii=False)
+                
+                print(f"💾 Coordenada salva em coordenadas.json como 'menu_pesquisa_pos_callback'\n")
+            else:
+                print(f"   ✓ Coordenada 'menu_pesquisa_pos_callback' já existe")
+            
+            # Clicar no menu Pesquisa
+            menu_x = coordenadas['menu_pesquisa_pos_callback']['x']
+            menu_y = coordenadas['menu_pesquisa_pos_callback']['y']
+            
+            print(f"   🖱️  Clicando no menu Pesquisa ({menu_x}, {menu_y})...")
+            pyautogui.click(menu_x, menu_y)
+            time.sleep(2)
+            print(f"   ✓ Menu Pesquisa clicado!")
+            
+            # 2. Verificar coordenada do input CPF/CNPJ
+            if 'input_cpf_pos_callback' not in coordenadas:
+                print("\n" + "="*80)
+                print("📍 CAPTURA DE COORDENADA #2 - Input CPF/CNPJ (pós-callback)")
+                print("="*80)
+                print("⚠️  Coordenada 'input_cpf_pos_callback' não encontrada!")
+                print("📋 Posicione o mouse sobre o INPUT de CPF/CNPJ")
+                print("⏱️  Captura em 5 segundos...")
+                print("="*80 + "\n")
+                
+                for i in range(5, 0, -1):
+                    print(f"   {i}...")
+                    time.sleep(1)
+                
+                pos = pyautogui.position()
+                print(f"\n✅ Coordenada capturada: X={pos[0]}, Y={pos[1]}")
+                
+                coordenadas['input_cpf_pos_callback'] = {
+                    'x': pos[0],
+                    'y': pos[1]
+                }
+                
+                with open('coordenadas.json', 'w', encoding='utf-8') as f:
+                    json.dump(coordenadas, f, indent=4, ensure_ascii=False)
+                
+                print(f"💾 Coordenada salva em coordenadas.json como 'input_cpf_pos_callback'\n")
+            else:
+                print(f"   ✓ Coordenada 'input_cpf_pos_callback' já existe")
+            
+            # Clicar no input CPF
+            input_x = coordenadas['input_cpf_pos_callback']['x']
+            input_y = coordenadas['input_cpf_pos_callback']['y']
+            
+            print(f"   🖱️  Clicando no input CPF/CNPJ ({input_x}, {input_y})...")
+            pyautogui.click(input_x, input_y)
+            time.sleep(0.5)
+            print(f"   ✓ Input CPF/CNPJ focado")
+            
+            # Limpar o campo (selecionar tudo e deletar)
+            print(f"   🧹 Limpando campo CPF...")
+            pyautogui.hotkey('ctrl', 'a')
+            time.sleep(0.2)
+            pyautogui.press('delete')
+            time.sleep(0.3)
+            print(f"   ✓ Campo limpo e pronto para próximo CPF!")
+            
+        except Exception as e:
+            print(f"   ⚠️  Erro ao voltar para menu Pesquisa: {e}")
+        
+        # Atualizar estatísticas
+        stats["total_processados"] += 1
+        
+        print(f"\n✅ Processamento concluído em {processing_time}s")
+        
+    except Exception as e:
+        print(f"\n❌ Erro ao processar CPF: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # 🔴 CRÍTICO: Verificar se erro é de conexão com Chrome (Chrome travou/fechou)
+        erro_str = str(e).lower()
+        chrome_morreu = any(keyword in erro_str for keyword in [
+            'connection refused', 
+            'connection aborted',
+            'max retries exceeded',
+            'failed to establish',
+            'chrome not reachable',
+            'session deleted',
+            'invalid session id'
+        ])
+        
+        if chrome_morreu:
+            print("\n🔴 ALERTA: Chrome travou/fechou! Reiniciando sessão...")
+            try:
+                session_manager.fechar_chrome()
+                print("   ✓ Chrome fechado com sucesso")
+            except Exception as close_error:
+                print(f"   ⚠️ Erro ao fechar Chrome: {close_error}")
+            
+            # Forçar estado FECHADO para próximo request abrir novo Chrome
+            session_manager.set_estado(session_manager.FECHADO)
+            print("   ✓ Estado resetado para FECHADO")
+            print("   ℹ️ Próximo CPF abrirá novo Chrome automaticamente")
+        
+        processing_time = int(time.time() - start_time)
+        
+        # Enviar erro para callback
+        error_payload = {
+            "cpf_id": job['cpf_id'],
+            "machine_id": MACHINE_ID,
+            "success": False,
+            "cpf": job['cpf'],
+            "processing_time": processing_time,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "data_processamento": datetime.now().strftime("%Y-%m-%d"),
+            "hora_processamento": datetime.now().strftime("%H:%M:%S"),
+            "error": str(e),
+            "data": {
+                "cliente": {
+                    "nome": "",
+                    "tipo_proposta": "",
+                    "correntista_safra": "",
+                    "cpf": job['cpf'],
+                    "produto": "",
+                    "endereco": "",
+                    "cep": "",
+                    "cidade": "",
+                    "uf": "",
+                    "resultado": "ERRO NO PROCESSAMENTO"
+                },
+                "veiculo": {},
+                "operacao": {},
+                "resumo_proposta": {},
+                "estimativa_venda": {}
+            }
+        }
+        
+        enviar_callback(job['callback_url'], error_payload)
+        
+        # Atualizar estatísticas
+        stats["total_erros"] += 1
+    
+    finally:
+        # Limpar job atual
+        current_job = None
+        print(f"\n{'='*60}")
+        print(f"✓ Servidor LIVRE para próximo CPF")
+        print(f"{'='*60}\n")
+
+
+def enviar_callback(callback_url: str, payload: dict):
+    """
+    Envia callback para Laravel (apenas 1 tentativa)
+    Se falhar, loga em arquivo único e continua (não trava sistema)
+    """
+    
+    try:
+        print(f"   📤 Enviando callback...")
+        
+        response = requests.post(
+            callback_url,
+            json=payload,
+            timeout=30,
+            headers={'Content-Type': 'application/json'}
+        )
+        
+        if response.status_code == 200:
+            print(f"   ✓ Callback enviado com sucesso!")
+            return True
+        else:
+            erro_msg = f"Status {response.status_code}"
+            print(f"   ⚠️ Callback retornou status {response.status_code}")
+            print(f"   ℹ️  CPF {payload.get('cpf')} - callback falhou mas processamento continuou")
+            
+            # Adicionar erro ao arquivo de log único
+            adicionar_log_erro_callback(payload.get('cpf'), erro_msg)
+            return False
+                
+    except Exception as e:
+        print(f"   ⚠️ Erro ao enviar callback: {e}")
+        print(f"   ℹ️  CPF {payload.get('cpf')} - Não foi possível acessar URL de callback")
+        
+        # Adicionar erro ao arquivo de log único
+        adicionar_log_erro_callback(payload.get('cpf'), str(e))
+        return False
+
+
+def adicionar_log_erro_callback(cpf: str, erro: str):
+    """
+    Adiciona linha de erro no arquivo único de logs de callback
+    Formato: [TIMESTAMP] CPF: xxxxx | Erro: mensagem
+    """
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_file = os.path.join("logs", "erros_callback.log")
+        
+        # Criar diretório logs se não existir
+        os.makedirs("logs", exist_ok=True)
+        
+        # Adicionar linha ao arquivo (modo append)
+        with open(log_file, 'a', encoding='utf-8') as f:
+            f.write(f"[{timestamp}] CPF: {cpf} | Erro: {erro}\n")
+            
+    except Exception as e:
+        print(f"   ⚠️ Erro ao gravar log de callback: {e}")
+
+
+# Handler para erros de validação
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handler customizado para erros de validação - mostra detalhes do erro"""
+    errors = []
+    for error in exc.errors():
+        errors.append({
+            "field": " -> ".join(str(x) for x in error["loc"]),
+            "message": error["msg"],
+            "type": error["type"]
+        })
+    
+    # Tentar decodificar o body recebido
+    try:
+        body = await request.body()
+        body_str = body.decode('utf-8') if body else None
+    except:
+        body_str = None
+    
+    # Imprimir no console para debug
+    print("\n" + "="*60)
+    print("❌ ERRO DE VALIDAÇÃO (422)")
+    print("="*60)
+    print(f"URL: {request.url}")
+    print(f"Method: {request.method}")
+    print(f"Body recebido: {body_str}")
+    print(f"Erros: {errors}")
+    print("="*60 + "\n")
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            "status": "validation_error",
+            "message": "Erro de validação nos dados enviados",
+            "errors": errors,
+            "body_received": body_str
+        }
+    )
+
+
+# Middleware para logar todas as requisições
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Middleware para logar todas as requisições"""
+    start_time = time.time()
+    
+    # Ler o body para POST requests
+    body_str = None
+    if request.method == "POST":
+        try:
+            body_bytes = await request.body()
+            body_str = body_bytes.decode('utf-8') if body_bytes else None
+            # Reconstituir o body para que possa ser lido novamente
+            async def receive():
+                return {"type": "http.request", "body": body_bytes}
+            request._receive = receive
+        except:
+            pass
+    
+    # Log da requisição
+    print(f"\n📥 {request.method} {request.url.path}")
+    if body_str:
+        print(f"📦 Body: {body_str}")
+    
+    try:
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        
+        # Log da resposta
+        status_emoji = "✅" if response.status_code < 400 else "⚠️" if response.status_code < 500 else "❌"
+        print(f"{status_emoji} {response.status_code} | {process_time:.2f}s")
+        
+        # Log detalhado para erros
+        if response.status_code >= 400:
+            print("\n" + "="*60)
+            print(f"❌ ERRO HTTP {response.status_code}")
+            print("="*60)
+            print(f"URL: {request.method} {request.url}")
+            print(f"Path: {request.url.path}")
+            print(f"Headers: {dict(request.headers)}")
+            print(f"Client: {request.client.host if request.client else 'unknown'}")
+            if body_str:
+                print(f"Body: {body_str}")
+            print(f"Tempo: {process_time:.2f}s")
+            print("="*60 + "\n")
+        
+        return response
+    except Exception as e:
+        process_time = time.time() - start_time
+        print(f"\n❌ EXCEÇÃO: {str(e)}")
+        print(f"Tempo até exceção: {process_time:.2f}s\n")
+        raise
+
+
+# Modelos Pydantic
+class ProcessarCpfRequest(BaseModel):
+    cpf_id: int
+    contrato: str
+    nome: str
+    cpf: str
+    callback_url: str
+    
+    class Config:
+        # Permitir campos extras sem erro
+        extra = "allow"
+
+
+class ProcessarCpfResponse(BaseModel):
+    status: str
+    cpf_id: int
+    message: str
+    machine_id: str = MACHINE_ID
+
+
+class HealthResponse(BaseModel):
+    status: str
+    estado: str
+    uptime: int
+    cpf_atual: Optional[dict]
+    machine_id: str = MACHINE_ID
+    timestamp: str
+
+
+# Endpoints
+@app.get("/", tags=["Root"])
+async def root():
+    """Endpoint raiz - informações básicas da API"""
+    return {
+        "name": "RPA Safra API",
+        "version": "1.0.0",
+        "machine_id": MACHINE_ID,
+        "status": "online"
+    }
+
+
+@app.post("/test-json", tags=["Debug"])
+async def test_json(request: Request):
+    """Endpoint de teste para debug de JSON"""
+    try:
+        body = await request.body()
+        body_str = body.decode('utf-8')
+        print(f"\n📦 Body completo recebido ({len(body)} bytes):")
+        print(body_str)
+        print()
+        
+        import json
+        data = json.loads(body_str)
+        return {
+            "status": "success",
+            "message": "JSON válido recebido",
+            "data_received": data,
+            "size_bytes": len(body)
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": str(e),
+                "body_preview": body_str[:200] if 'body_str' in locals() else None
+            }
+        )
+
+
+@app.post("/test-callback", tags=["Debug"])
+async def test_callback(request: Request):
+    """
+    Endpoint de teste para simular callback do Laravel
+    Apenas loga os dados recebidos
+    """
+    try:
+        body = await request.body()
+        body_str = body.decode('utf-8')
+        
+        import json
+        data = json.loads(body_str)
+        
+        print("\n" + "="*80)
+        print("🔔 CALLBACK RECEBIDO - SIMULAÇÃO LARAVEL")
+        print("="*80)
+        print(f"📊 Dados do callback:")
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+        print("="*80 + "\n")
+        
+        return {
+            "status": "ok",
+            "message": "Callback recebido com sucesso (simulação Laravel)",
+            "data_received": True
+        }
+    except Exception as e:
+        print(f"\n❌ Erro ao processar callback: {e}\n")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": str(e)
+            }
+        )
+
+
+@app.post("/processar-cpf", tags=["Processamento"])
+async def processar_cpf_endpoint(request: ProcessarCpfRequest, background_tasks: BackgroundTasks):
+    """
+    Endpoint para receber CPF para processamento ASSÍNCRONO
+    
+    - Retorna 503 se já estiver processando outro CPF
+    - Retorna 202 Accepted IMEDIATAMENTE (não bloqueia)
+    - Processa em background e envia callback ao Laravel
+    - Laravel libera servidor APÓS receber callback
+    """
+    
+    global current_job
+    
+    # Verificar se já está processando
+    estado = session_manager.get_estado()
+    if estado == session_manager.PROCESSANDO or current_job is not None:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "busy",
+                "message": "Servidor ocupado processando outro CPF",
+                "machine_id": MACHINE_ID,
+                "cpf_atual": current_job
+            }
+        )
+    
+    # Registrar job atual
+    current_job = {
+        "cpf_id": request.cpf_id,
+        "cpf": request.cpf,
+        "nome": request.nome,
+        "contrato": request.contrato
+    }
+    
+    # Adicionar processamento em background
+    background_tasks.add_task(processar_job_direto, request.dict())
+    
+    # Retornar 202 Accepted IMEDIATAMENTE
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "accepted",
+            "message": "CPF aceito para processamento em background",
+            "cpf_id": request.cpf_id,
+            "machine_id": MACHINE_ID
+        }
+    )
+
+
+@app.get("/health", response_model=HealthResponse, tags=["Monitoramento"])
+async def health_check():
+    """
+    Endpoint de health check
+    
+    Retorna status atual do servidor (FECHADO, OCIOSO_LOGADO, PROCESSANDO)
+    """
+    
+    uptime = int(time.time() - START_TIME)
+    estado = session_manager.get_estado()
+    
+    return HealthResponse(
+        status="healthy",
+        estado=estado,
+        uptime=uptime,
+        cpf_atual=current_job,
+        machine_id=MACHINE_ID,
+        timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    )
+
+
+@app.get("/status", tags=["Monitoramento"])
+async def status():
+    """Endpoint com informações detalhadas do servidor"""
+    
+    return {
+        "machine_id": MACHINE_ID,
+        "uptime": int(time.time() - START_TIME),
+        "estado": session_manager.get_estado(),
+        "chrome_aberto": session_manager.is_chrome_open(),
+        "cpf_atual": current_job,
+        "total_processados": stats["total_processados"],
+        "total_erros": stats["total_erros"],
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+
+@app.get("/ocupado", tags=["Monitoramento"])
+async def verificar_ocupado():
+    """
+    Verifica se a API está processando algum CPF no momento
+    
+    Use esta rota para saber se pode enviar o próximo CPF.
+    
+    Retorna:
+    - ocupado: true - Está processando, AGUARDE antes de enviar próximo
+    - ocupado: false - Está livre, pode enviar próximo CPF
+    """
+    
+    # Verificar se está processando (estado PROCESSANDO ou tem job atual)
+    estado_atual = session_manager.get_estado()
+    esta_processando = (estado_atual == session_manager.PROCESSANDO) or (current_job is not None)
+    
+    return {
+        "ocupado": esta_processando,
+        "processando_cpf": current_job,
+        "estado": estado_atual,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+
+@app.post("/restart", tags=["Administração"])
+async def restart_service():
+    """
+    Reinicia o serviço RPA
+    
+    - Fecha o Chrome se estiver aberto
+    - Reseta estados e sessões
+    - Limpa job atual
+    - Prepara para receber novos CPFs
+    """
+    global current_job
+    
+    print("\n" + "="*80)
+    print("🔄 REINICIANDO SERVIÇO RPA")
+    print("="*80)
+    
+    try:
+        # 1. Fechar Chrome se estiver aberto
+        if session_manager.is_chrome_open():
+            print("   🌐 Fechando Chrome...")
+            session_manager.fechar_chrome()
+            print("   ✓ Chrome fechado")
+        else:
+            print("   ℹ️  Chrome já estava fechado")
+        
+        # 2. Resetar estado para FECHADO
+        print("   🔄 Resetando estado para FECHADO...")
+        session_manager.set_estado(session_manager.FECHADO)
+        print("   ✓ Estado resetado")
+        
+        # 3. Limpar job atual
+        print("   🧹 Limpando job atual...")
+        current_job = None
+        print("   ✓ Job limpo")
+        
+        # 4. Resetar estatísticas (opcional)
+        # stats["total_processados"] = 0
+        # stats["total_erros"] = 0
+        
+        print("="*80)
+        print("✅ SERVIÇO REINICIADO COM SUCESSO")
+        print("="*80 + "\n")
+        
+        return {
+            "status": "success",
+            "message": "Serviço RPA reiniciado com sucesso",
+            "estado": session_manager.get_estado(),
+            "chrome_aberto": session_manager.is_chrome_open(),
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+    except Exception as e:
+        error_msg = f"Erro ao reiniciar serviço: {str(e)}"
+        print(f"\n❌ {error_msg}\n")
+        
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "message": error_msg,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+        )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Evento executado ao iniciar a API"""
+    print("="*60)
+    print("🚀 RPA SAFRA API INICIADA")
+    print("="*60)
+    print(f"Machine ID: {MACHINE_ID}")
+    print(f"Estado inicial: {session_manager.get_estado()}")
+    print("="*60)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Evento executado ao desligar a API"""
+    print("\n" + "="*60)
+    print("🛑 DESLIGANDO SERVIDOR")
+    print("="*60)
+    
+    # Fechar Chrome se estiver aberto
+    session_manager.fechar_chrome()
+    
+    print("✅ Servidor desligado com sucesso")
+    print("="*60)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    # Porta padrão 8000 (pode ser alterada via .env)
+    port = int(os.getenv("API_PORT", 8000))
+    host = os.getenv("API_HOST", "0.0.0.0")
+    
+    uvicorn.run(app, host=host, port=port)

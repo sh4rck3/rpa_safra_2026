@@ -1,0 +1,29 @@
+# Web automation and scraping
+selenium==4.15.2
+webdriver-manager==4.0.1
+undetected-chromedriver>=3.5.5
+
+# HTTP requests and PDF handling
+requests==2.31.0
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Optional: PDF manipulation
+PyPDF2==3.0.1
+
+# Optional: for better waiting and error handling
+urllib3==2.1.0
+
+# Mouse and keyboard automation
+pyautogui==0.9.54
+pyperclip==1.8.2
+
+# Image recognition (required by PyAutoGUI)
+Pillow>=10.0.0
+pyscreeze>=0.1.29
+
+# API Framework (versões com wheels pré-compilados para Python 3.14)
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.10.0

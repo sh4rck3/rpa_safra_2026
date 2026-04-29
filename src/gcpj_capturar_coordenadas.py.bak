@@ -1,0 +1,334 @@
+"""
+Script para Capturar Coordenadas do Sistema GCPJ
+================================================
+
+Este script ajuda a capturar as coordenadas dos elementos na tela
+para automatizar o acesso ao sistema GCPJ via extensão do Chrome.
+
+IMPORTANTE: Execute este script ANTES de usar o processamento em lote!
+
+Passos:
+1. Abre o Chrome
+2. Aguarda você posicionar o mouse em cada elemento
+3. Captura as coordenadas ao pressionar ENTER
+4. Salva tudo em coordenadas_gcpj.json
+"""
+
+import json
+import pyautogui
+import time
+from pathlib import Path
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+
+# Desabilitar failsafe do pyautogui (mover mouse para canto não para o script)
+pyautogui.FAILSAFE = False
+
+# Arquivo para salvar coordenadas
+ARQUIVO_COORDENADAS = Path(__file__).parent.parent / "coordenadas_gcpj.json"
+
+# Variável global para o driver
+driver = None
+
+def capturar_coordenada(nome_elemento: str, descricao: str) -> dict:
+    """
+    Captura a coordenada de um elemento específico.
+    
+    Args:
+        nome_elemento: Nome identificador do elemento (ex: "extensao_chrome")
+        descricao: Descrição do que o usuário deve fazer
+    
+    Returns:
+        dict com x, y da coordenada capturada
+    """
+    print(f"\n{'='*70}")
+    print(f"📍 ELEMENTO: {nome_elemento.upper()}")
+    print(f"{'='*70}")
+    print(f"📋 {descricao}")
+    print(f"\n⚠️  INSTRUÇÕES:")
+    print(f"   1. Posicione o mouse EXATAMENTE sobre o elemento")
+    print(f"   2. Pressione ENTER para capturar a coordenada")
+    print(f"   3. NÃO mova o mouse após pressionar ENTER!")
+    
+    input("\n⏸️  Pressione ENTER quando o mouse estiver posicionado...")
+    
+    # Captura posição do mouse
+    x, y = pyautogui.position()
+    
+    print(f"✅ Coordenada capturada: X={x}, Y={y}")
+    
+    return {"x": x, "y": y, "descricao": descricao}
+
+def abrir_chrome():
+    """Abre o Chrome automaticamente."""
+    global driver
+    
+    print("\n🌐 Abrindo Chrome com perfil dedicado do Selenium...")
+    
+    chrome_options = Options()
+    chrome_options.add_argument("--start-maximized")
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option("useAutomationExtension", False)
+    
+    # Perfil dedicado para o Selenium (na pasta do projeto)
+    profile_dir = Path(__file__).parent.parent / "chrome_profile"
+    profile_dir.mkdir(exist_ok=True)
+    
+    chrome_options.add_argument(f"--user-data-dir={profile_dir.absolute()}")
+    
+    print(f"📁 Perfil persistente: {profile_dir}")
+    print("💡 Extensões instaladas neste perfil ficarão salvas!")
+    
+    try:
+        # Tenta usar ChromeDriverManager
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+    except Exception as e:
+        print(f"⚠️  Erro ao usar ChromeDriverManager: {e}")
+        print("🔄 Tentando abrir Chrome sem Service...")
+        try:
+            # Tenta sem especificar service
+            driver = webdriver.Chrome(options=chrome_options)
+        except Exception as e2:
+            print(f"❌ Erro ao abrir Chrome: {e2}")
+            raise
+    
+    # Abre uma página em branco
+    driver.get("about:blank")
+    
+    print("✅ Chrome aberto!")
+    time.sleep(2)
+
+def main():
+    """Função principal para capturar todas as coordenadas do GCPJ."""
+    global driver
+    
+    print("""
+╔══════════════════════════════════════════════════════════════════════╗
+║                                                                      ║
+║        🤖 CAPTURA DE COORDENADAS - SISTEMA GCPJ                     ║
+║                                                                      ║
+║  Este script irá capturar as coordenadas dos elementos necessários  ║
+║  para automatizar o acesso ao sistema GCPJ via extensão do Chrome.  ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+    """)
+    
+    print("\n📝 PASSOS QUE SERÃO CAPTURADOS:")
+    print("   1. Ícone da extensão GCPJ no Chrome")
+    print("   2. Campo de input/busca da extensão")
+    print("   3. Item 'GCPJ' no menu suspenso")
+    print("   4. Botão 'ACESSAR'")
+    print("   5. Link 'Consulta de Processos'")
+    print("   6. Campo 'Nº do Processo Bradesco'")
+    print("\n🚀 Abrindo Chrome automaticamente...")
+    
+    # Abre o Chrome automaticamente
+    abrir_chrome()
+    
+    # Carregar coordenadas existentes
+    coordenadas = carregar_coordenadas_existentes()
+    
+    if coordenadas:
+        print("\n" + "="*70)
+        print(f"📂 COORDENADAS EXISTENTES ENCONTRADAS: {len(coordenadas)}")
+        for nome in coordenadas.keys():
+            print(f"   ✓ {nome}")
+        print("="*70)
+        print("💡 Apenas as coordenadas faltantes serão capturadas!")
+    
+    # Aguarda instalação e login na extensão (apenas primeira vez)
+    if not coordenadas:
+        print("\n" + "="*70)
+        print("📌 PRIMEIRA VEZ? INSTALE A EXTENSÃO GCPJ:")
+        print("   1. Instale a extensão GCPJ no Chrome")
+        print("   2. Faça login na extensão (se necessário)")
+        print("   3. Verifique se a extensão está visível no canto superior direito")
+        print("="*70)
+        print("\n⚠️  A extensão ficará instalada para as próximas execuções!")
+    
+    input("\n✅ Pressione ENTER quando estiver pronto para capturar coordenadas...")
+    
+    # =================================================================
+    # PASSO 1: Capturar ícone da extensão (se não existir)
+    # =================================================================
+    if "extensao_chrome" not in coordenadas:
+        coordenadas["extensao_chrome"] = capturar_coordenada(
+            "extensao_chrome",
+            "Posicione o mouse sobre o ÍCONE DA EXTENSÃO GCPJ no Chrome\n"
+            "   (geralmente fica no canto superior direito, perto da barra de endereço)"
+        )
+        salvar_coordenadas(coordenadas)
+    else:
+        print(f"\n✓ extensao_chrome já existe, pulando...")
+    
+    print("\n⏳ Aguardando 2 segundos...")
+    time.sleep(2)
+    
+    # =================================================================
+    # PASSO 2: Clicar na extensão para abrir o popup
+    # =================================================================
+    print(f"\n🖱️  Clicando na extensão...")
+    pyautogui.click(coordenadas["extensao_chrome"]["x"], 
+                    coordenadas["extensao_chrome"]["y"])
+    time.sleep(1.5)
+    
+    # =================================================================
+    # PASSO 3: Capturar campo de input (se não existir)
+    # =================================================================
+    if "input_busca" not in coordenadas:
+        coordenadas["input_busca"] = capturar_coordenada(
+            "input_busca",
+            "Posicione o mouse sobre o CAMPO DE BUSCA/INPUT da extensão\n"
+            "   (onde você digita 'GCPJ')"
+        )
+        salvar_coordenadas(coordenadas)
+    else:
+        print(f"\n✓ input_busca já existe, pulando...")
+    
+    print("\n⏳ Aguardando 2 segundos...")
+    time.sleep(2)
+    
+    # =================================================================
+    # PASSO 4: Clicar no input e digitar GCPJ
+    # =================================================================
+    print(f"\n🖱️  Clicando no campo de busca...")
+    pyautogui.click(coordenadas["input_busca"]["x"], 
+                    coordenadas["input_busca"]["y"])
+    time.sleep(0.5)
+        "   (onde você digita 'GCPJ')"
+    )
+    
+    print("\n⏳ Aguardando 2 segundos...")
+    time.sleep(2)
+    
+    # =================================================================
+    # PASSO 4: Clicar no input e digitar GCPJ
+    # =================================================================
+    print(f"\n🖱️  Clicando no campo de busca...")
+    pyautogui.click(coordenadas["input_busca"]["x"], 
+                    coordenadas["input_busca"]["y" (se não existir)
+    # =================================================================
+    if "item_gcpj_menu" not in coordenadas:
+        coordenadas["item_gcpj_menu"] = capturar_coordenada(
+            "item_gcpj_menu",
+            "Posicione o mouse sobre o ITEM 'GCPJ' no menu suspenso\n"
+            "   (que apareceu após digitar 'GCPJ')"
+        )
+        salvar_coordenadas(coordenadas)
+    else:
+        print(f"\n✓ item_gcpj_menu já existe, pulando...")
+    
+    print("\n⏳ Aguardando 2 segundos...")
+    time.sleep(2)
+    
+    # =================================================================
+    # PASSO 6: Clicar no item e capturar botão ACESSAR (se não existir)
+    # =================================================================
+    print(f"\n🖱️  Clicando no item GCPJ do menu...")
+    pyautogui.click(coordenadas["item_gcpj_menu"]["x"], 
+                    coordenadas["item_gcpj_menu"]["y"])
+    time.sleep(1.5)
+    
+    if "botao_acessar" not in coordenadas:
+        coordenadas["botao_acessar"] = capturar_coordenada(
+            "botao_acessar",
+            "Posicione o mouse sobre o BOTÃO 'ACESSAR'\n"
+            "   (que apareceu após selecionar GCPJ)"
+        )
+        salvar_coordenadas(coordenadas)
+    else:
+        print(f"\n✓ botao_acessar já existe, pulando..."pyautogui.click(coordenadas["item_gcpj_menu"]["x"], 
+                    coordenadas["item_gcpj_menu"]["y"])
+    time.sleep(1.5)
+    
+    coordenadas["botao_acessar"] = capturar_coordenada(
+        "botao_acessar",
+        "Posicione o mouse sobre o BOTÃO 'ACESSAR'\n"
+        "   (que apareceu após selecionar GCPJ)"
+    )
+    
+    print("\n⏳ Aguardando 2 segundos...")
+    time.sleep(2)
+    
+    # =================================================================
+    # EXECUTAR ACESSO AO GCPJ
+    # =================================================================
+    print("\n" + "="*70)
+    print("🚀 CLICANDO EM ACESSAR...")
+    print("="*70)
+    
+    print(f"\n🖱️  Clicando no botão Acessar...")
+    pyautogui.click(coordenadas["botao_acessar"]["x"], 
+                    coordenadas["botao_acessar"]["y"])
+    
+    print("⏳ Aguardando sistema GCPJ carregar (10 segundos)...")
+    time.sleep(10)
+    
+    print("\n✅ Sistema GCPJ deve estar carregado!")
+    
+    # =================================================================
+    # SALVAR COORDENADAS FINAIS
+    # =================================================================
+    print(f"\n{'='*70}")
+    print(f"💾 TODAS AS COORDENADAS SALVAS!")
+    print(f"{'='*70}")
+    
+    with open(ARQUIVO_COORDENADAS, "w", encoding="utf-8") as f:
+        json.dump(coordenadas, f, indent=4, ensure_ascii=False)
+    
+    print("\n✅ Coordenadas salvas com sucesso!")
+    print(f"\n📄 Arquivo: {ARQUIVO_COORDENADAS}")
+    
+    print("\n📋 Total de coordenadas capturadas:")
+    for nome, coord in coordenadas.items():
+        print(f"   ✓ {nome}: X={coord['x']}, Y={coord['y']}")
+    
+    print("\n✅ COORDENADAS SALVAS COM SUCESSO!")
+    print("\n📄 Arquivo gerado:")
+    print(f"   {ARQUIVO_COORDENADAS}")
+    
+    print("\n📋 Coordenadas capturadas:")
+    for nome, coord in coordenadas.items():
+        print(f"   ✓ {nome}: X={coord['x']}, Y={coord['y']}")
+    
+    print("\n" + "="*70)
+    print("🎉 CAPTURA CONCLUÍDA!")
+    print("="*70)
+    print("\n💡 PRÓXIMOS PASSOS:")
+    print("   1. Verifique se as coordenadas estão corretas testando manualmente")
+    print("   2. Execute o script de processamento: python src/gcpj_processar_lote.py")
+    print("\n⚠️  IMPORTANTE: Se algo não funcionar, execute este script novamente")
+    print("   para recapturar as coordenadas!\n")
+    
+    # Perguntar se quer fechar o Chrome
+    print("="*70)
+    fechar = input("\n❓ Deseja fechar o Chrome agora? (s/n): ").strip().lower()
+    
+    if fechar == 's':
+        print("🔴 Fechando Chrome...")
+        if driver:
+            driver.quit()
+        print("✅ Chrome fechado!")
+    else:
+        print("💡 Chrome permanecerá aberto. Feche manualmente quando quiser.")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Captura cancelada pelo usuário!")
+        if driver:
+            print("🔴 Fechando Chrome...")
+            driver.quit()
+    except Exception as e:
+        print(f"\n\n❌ ERRO: {e}")
+        print(f"   Tipo: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        if driver:
+            print("🔴 Fechando Chrome...")
+            driver.quit()
