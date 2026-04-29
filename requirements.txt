@@ -9,6 +9,9 @@ requests==2.31.0
 # Environment variables
 python-dotenv==1.0.0
 
+# Required for Python 3.12+ (distutils removed from stdlib)
+setuptools>=69.0.0
+
 # Optional: PDF manipulation
 PyPDF2==3.0.1
 
