@@ -147,6 +147,9 @@ class SessionManager:
             else:
                 driver = uc.Chrome(options=chrome_options, use_subprocess=True)
             
+            # Forçar maximizar (--start-maximized pode ser ignorado pelo uc)
+            driver.maximize_window()
+            
             wait = WebDriverWait(driver, self.browser_timeout)
             
             print("   ✓ Chrome aberto com sucesso")
